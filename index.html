@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OT Management System | Brandspire</title>
+    <link rel="icon" type="image/png" href="https://brandspire-lk.vercel.app/images/bs-logo.png">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Toast Notification Area -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Auth Section -->
+    <section id="auth-section" class="auth-container active">
+        <div class="auth-card">
+            <img src="https://brandspire-lk.vercel.app/images/bs-logo.png" alt="Brandspire Logo" class="auth-logo">
+            <h2>Welcome to OT Manager</h2>
+            <p>Sign in to manage your business's overtime records securely.</p>
+            
+            <form id="auth-form" onsubmit="handleAuth(event)">
+                <div class="form-group">
+                    <label for="auth-username">Username</label>
+                    <input type="text" id="auth-username" required placeholder="business_name">
+                </div>
+                <div class="form-group">
+                    <label for="auth-password">Password</label>
+                    <input type="password" id="auth-password" required placeholder="••••••••">
+                </div>
+                <div class="auth-actions">
+                    <button type="submit" id="btn-login" class="btn btn-primary full-width">Log In</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- App Dashboard (Hidden until logged in) -->
+    <div id="app-dashboard" class="app-container hidden">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="https://brandspire-lk.vercel.app/images/bs-logo.png" alt="Brandspire Logo" class="logo">
+                <h2 id="sidebar-username">Brandspire</h2>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-link active" onclick="navigateTo('employee-management', this)">
+                    <span class="icon">👥</span> Employees
+                </a>
+                <a href="#" class="nav-link" onclick="navigateTo('ot-entry', this)">
+                    <span class="icon">⏱️</span> OT Entry
+                </a>
+                <a href="#" class="nav-link" onclick="navigateTo('monthly-summary', this)">
+                    <span class="icon">📊</span> Summary
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button onclick="handleLogout()" class="btn btn-danger full-width">Logout</button>
+                <p style="margin-top: 15px;">Powered by <a href="https://brandspire-lk.vercel.app/" target="_blank" style="color: white; text-decoration: none; font-weight: 600;">Brandspire</a></p>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            
+            <!-- Page 1: Employee Management -->
+            <section id="employee-management" class="page-section active fade-in">
+                <div class="page-header">
+                    <h2>Employee Management</h2>
+                    <p>Add and manage your team members.</p>
+                </div>
+
+                <div class="card">
+                    <div class="input-group">
+                        <input type="text" id="empName" placeholder="Enter Employee Name">
+                        <button onclick="addEmployee()" class="btn btn-primary">Add Employee</button>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employeeTable">
+                                <!-- Employee rows will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Page 2: OT Entry -->
+            <section id="ot-entry" class="page-section fade-in">
+                <div class="page-header">
+                    <h2>OT Entry</h2>
+                    <p>Record overtime hours for employees.</p>
+                </div>
+
+                <div class="card">
+                    <div class="grid-form">
+                        <div class="form-group">
+                            <label for="employee">Select Employee</label>
+                            <select id="employee">
+                                <option value="">-- Select Employee --</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="date">Date</label>
+                            <input type="date" id="date">
+                        </div>
+                        
+                        <div class="form-group full-width">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="holiday">
+                                <span class="custom-checkbox"></span>
+                                Public Holiday
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="start">In Time</label>
+                            <input type="time" id="start">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="end">Out Time</label>
+                            <input type="time" id="end">
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button onclick="addRecord()" class="btn btn-success">Save Record</button>
+                        <button onclick="printOTTable()" class="btn btn-outline">Print OT Table</button>
+                    </div>
+
+                    <div class="search-bar">
+                        <input type="text" id="search" placeholder="Search Employee Records..." onkeyup="renderRecords()">
+                    </div>
+
+                    <div class="table-responsive">
+                        <table id="otTableToPrint">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Date</th>
+                                    <th>Day Type</th>
+                                    <th>In Time</th>
+                                    <th>Out Time</th>
+                                    <th>Normal OT (Hrs)</th>
+                                    <th>Special OT (Hrs)</th>
+                                    <th class="hide-print">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="records">
+                                <!-- Record rows will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Page 3: Monthly Summary -->
+            <section id="monthly-summary" class="page-section fade-in">
+                <div class="page-header">
+                    <h2>Monthly Summary</h2>
+                    <p>View and export accumulated overtime hours.</p>
+                </div>
+
+                <div class="card">
+                    <div class="table-responsive">
+                        <table id="summaryTableToPrint">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Normal OT (Hrs)</th>
+                                    <th>Special OT (Hrs)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summary">
+                                <!-- Summary rows will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="action-buttons noPrint" style="margin-top: 20px;">
+                        <button onclick="exportCSV()" class="btn btn-outline">Export CSV</button>
+                        <button onclick="clearAllRecords()" class="btn btn-danger">Clear Month Data</button>
+                        <button onclick="printSummary()" class="btn btn-outline">Print Summary</button>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

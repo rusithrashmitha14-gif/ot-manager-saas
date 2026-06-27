@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>OT Mgt System by Brandspire</title>
+<link rel="icon" type="image/png" href="https://brandspire-lk.vercel.app/images/bs-logo.png">
+<style>
+
+body{
+font-family:Arial,sans-serif;
+background:#f4f6f9;
+margin:20px;
+}
+function launchFullscreen() {
+  const element = document.documentElement;
+  if (element.requestFullscreen) {
+    element.requestFullscreen();
+  } else if (element.webkitRequestFullscreen) { /* Safari & Older Chrome */
+    element.webkitRequestFullscreen();
+  }
+}
+.card{
+background:#fff;
+padding:15px;
+margin-bottom:15px;
+border-radius:10px;
+box-shadow:0 2px 8px rgba(0,0,0,.15);
+}
+
+input,select,button{
+padding:8px;
+margin:4px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:10px;
+}
+
+th,td{
+border:1px solid #ccc;
+padding:8px;
+text-align:center;
+}
+
+th{
+background:#e9eef5;
+}
+
+button{
+cursor:pointer;
+}
+
+.summary{
+font-weight:bold;
+font-size:16px;
+margin-top:10px;
+}
+
+.noPrint{
+display:block;
+}
+
+</style>
+
+</head>
+<body>
+
+<div class="card">
+
+<h2>Employee Management</h2>
+
+<input
+type="text"
+id="empName"
+placeholder="Employee Name">
+
+<button onclick="addEmployee()">
+Add Employee
+</button>
+
+<table>
+
+<thead>
+<tr>
+<th>Name</th>
+<th>Action</th>
+</tr>
+</thead>
+
+<tbody id="employeeTable"></tbody>
+
+</table>
+
+</div>
+
+<div class="card" id="otPrintArea">
+
+<h2>OT Entry</h2>
+
+<select id="employee"></select>
+
+<input type="date" id="date">
+
+<label>
+<input type="checkbox" id="holiday">
+Public Holiday
+</label>
+
+<br>
+
+<label>In Time</label>
+<input type="time" id="start">
+
+<label>Out Time</label>
+<input type="time" id="end">
+
+<button onclick="addRecord()">
+Save Record
+</button>
+
+<button onclick="printOTTable()">
+Print OT Table
+</button>
+
+<input
+type="text"
+id="search"
+placeholder="Search Employee"
+onkeyup="renderRecords()">
+
+<table>
+
+<thead>
+
+<tr>
+<th>Employee</th>
+<th>Date</th>
+<th>Day Type</th>
+<th>In Time</th>
+<th>Out Time</th>
+<th>Normal OT</th>
+<th>Special OT</th>
+<th>Action</th>
+</tr>
+
+</thead>
+
+<tbody id="records"></tbody>
+
+</table>
+
+</div>
+
+<div class="card" id="printArea">
+
+<h2>Monthly Summary</h2>
+
+<table>
+
+<thead>
+<tr>
+<th>Employee</th>
+<th>Normal OT</th>
+<th>Special OT</th>
+</tr>
+</thead>
+
+<tbody id="summary"></tbody>
+
+</table>
+
+<br>
+
+<div class="noPrint">
+
+<button onclick="exportCSV()">
+Export CSV
+</button>
+
+<button onclick="clearAllRecords()">
+Clear Month End Data
+</button>
+
+<button onclick="printSummary()">
+Print Summary
+</button>
+
+</div>
+
+</div>
+
+<script>
+
+let employees =
+JSON.parse(
+localStorage.getItem("employees")
+||"[]"
+);
+
+let recordsData =
+JSON.parse(
+localStorage.getItem("recordsData")
+||"[]"
+);
+
+function saveData(){
+
+localStorage.setItem(
+"employees",
+JSON.stringify(employees)
+);
+
+localStorage.setItem(
+"recordsData",
+JSON.stringify(recordsData)
+);
+
+}
+
+function addEmployee(){
+
+let name =
+document.getElementById("empName")
+.value.trim();
+
+if(name===""){
+alert("Enter Employee Name");
+return;
+}
+
+if(employees.includes(name)){
+alert("Employee already exists");
+return;
+}
+
+employees.push(name);
+
+document.getElementById("empName").value="";
+
+saveData();
+renderEmployees();
+
+}
+
+function editEmployee(index){
+
+let newName =
+prompt(
+"Edit Employee Name",
+employees[index]
+);
+
+if(!newName) return;
+
+let oldName = employees[index];
+
+employees[index] = newName;
+
+recordsData.forEach(r=>{
+
+if(r.employee===oldName){
+r.employee=newName;
+}
+
+});
+
+saveData();
+
+renderEmployees();
+renderRecords();
+renderSummary();
+
+}
+
+function deleteEmployee(index){
+
+if(!confirm("Delete Employee?"))
+return;
+
+employees.splice(index,1);
+
+saveData();
+
+renderEmployees();
+
+}
+
+function renderEmployees(){
+
+let html="";
+
+employee.innerHTML="";
+
+employees.forEach(emp=>{
+
+let op =
+document.createElement("option");
+
+op.text=emp;
+
+employee.add(op);
+
+});
+
+employees.forEach((emp,index)=>{
+
+html += `
+<tr>
+
+<td>${emp}</td>
+
+<td>
+
+<button
+onclick="editEmployee(${index})">
+Edit
+</button>
+
+<button
+onclick="deleteEmployee(${index})">
+Delete
+</button>
+
+</td>
+
+</tr>
+`;
+
+});
+
+employeeTable.innerHTML=html;
+
+}
+
+function parseTime(time){
+
+let p=time.split(":");
+
+return parseInt(p[0]) +
+(parseInt(p[1])/60);
+
+}
+
+function addRecord(){
+
+let emp =
+document.getElementById("employee")
+.value;
+
+let date =
+document.getElementById("date")
+.value;
+
+let startText =
+document.getElementById("start")
+.value;
+
+let endText =
+document.getElementById("end")
+.value;
+
+if(
+!emp ||
+!date ||
+!startText ||
+!endText
+){
+alert("Fill all fields");
+return;
+}
+
+let start =
+parseTime(startText);
+
+let end =
+parseTime(endText);
+
+let adjustedStart =
+Math.max(start,8);
+
+let normalOT = 0;
+let specialOT = 0;
+
+let dayType = "Weekday";
+
+if(
+document.getElementById("holiday")
+.checked
+){
+
+dayType = "Public Holiday";
+
+specialOT =
+Math.max(
+0,
+end-adjustedStart
+);
+
+}
+else{
+
+let day =
+new Date(date).getDay();
+
+if(day===0){
+
+dayType="Sunday";
+
+specialOT =
+Math.max(
+0,
+end-adjustedStart
+);
+
+}
+else if(day===6){
+
+dayType="Saturday";
+
+normalOT =
+Math.max(
+0,
+Math.min(end,17)
+-
+adjustedStart
+);
+
+if(end>17){
+
+specialOT =
+end-17;
+
+}
+
+}
+else{
+
+dayType="Weekday";
+
+let otStart =
+adjustedStart + 9;
+
+if(end>otStart){
+
+specialOT =
+end-otStart;
+
+}
+
+}
+
+}
+
+recordsData.push({
+
+employee:emp,
+date:date,
+dayType:dayType,
+
+inTime:startText,
+outTime:endText,
+
+normalOT:
+Number(
+normalOT.toFixed(2)
+),
+
+specialOT:
+Number(
+specialOT.toFixed(2)
+)
+
+});
+
+saveData();
+
+renderRecords();
+renderSummary();
+
+}
+
+function renderRecords(){
+
+let keyword =
+document.getElementById("search")
+.value.toLowerCase();
+
+let html="";
+
+recordsData.forEach((r,index)=>{
+
+if(
+r.employee
+.toLowerCase()
+.includes(keyword)
+){
+
+html += `
+<tr>
+
+<td>${r.employee}</td>
+<td>${r.date}</td>
+<td>${r.dayType}</td>
+
+<td>${r.inTime}</td>
+<td>${r.outTime}</td>
+
+<td>${r.normalOT.toFixed(2)}</td>
+<td>${r.specialOT.toFixed(2)}</td>
+
+<td>
+
+<button
+onclick="deleteRecord(${index})">
+Delete
+</button>
+
+</td>
+
+</tr>
+`;
+
+}
+
+});
+
+records.innerHTML=html;
+
+}
+
+function deleteRecord(index){
+
+if(!confirm("Delete Record?"))
+return;
+
+recordsData.splice(index,1);
+
+saveData();
+
+renderRecords();
+renderSummary();
+
+}
+
+function renderSummary(){
+
+let sum={};
+
+recordsData.forEach(r=>{
+
+if(!sum[r.employee]){
+
+sum[r.employee]={
+normal:0,
+special:0
+};
+
+}
+
+sum[r.employee].normal +=
+r.normalOT;
+
+sum[r.employee].special +=
+r.specialOT;
+
+});
+
+let html="";
+
+for(let emp in sum){
+
+html += `
+<tr>
+
+<td>${emp}</td>
+
+<td>
+${sum[emp].normal.toFixed(2)}
+</td>
+
+<td>
+${sum[emp].special.toFixed(2)}
+</td>
+
+</tr>
+`;
+
+}
+
+summary.innerHTML=html;
+
+}
+
+function exportCSV(){
+
+let csv =
+"Employee,Date,Day Type,In Time,Out Time,Normal OT,Special OT\n";
+
+recordsData.forEach(r=>{
+
+csv +=
+`${r.employee},
+${r.date},
+${r.dayType},
+${r.inTime},
+${r.outTime},
+${r.normalOT},
+${r.specialOT}\n`;
+
+});
+
+let blob =
+new Blob(
+[csv],
+{type:"text/csv"}
+);
+
+let a =
+document.createElement("a");
+
+a.href =
+URL.createObjectURL(blob);
+
+a.download =
+"OT_Report_V5_1.csv";
+
+a.click();
+
+}
+
+function clearAllRecords(){
+
+if(
+!confirm(
+"Are you sure you want to clear all OT records for the month?"
+)
+){
+return;
+}
+
+recordsData = [];
+
+saveData();
+
+renderRecords();
+renderSummary();
+
+alert(
+"All OT records cleared successfully."
+);
+
+}
+
+function printOTTable(){
+
+let printWindow =
+window.open(
+"",
+"_blank"
+);
+
+printWindow.document.write(`
+<html>
+
+<head>
+
+<title>
+OT Entry Report
+</title>
+
+<style>
+
+body{
+font-family:Arial;
+padding:20px;
+}
+
+h2{
+text-align:center;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+th,td{
+border:1px solid black;
+padding:8px;
+text-align:center;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h2>
+OT Entry Report
+</h2>
+
+${document.querySelector(
+"#otPrintArea table"
+).outerHTML}
+
+</body>
+
+</html>
+`);
+
+printWindow.document.close();
+
+printWindow.focus();
+
+setTimeout(function(){
+
+printWindow.print();
+
+},500);
+
+}
+
+function printSummary(){
+
+let printWindow =
+window.open(
+"",
+"_blank"
+);
+
+printWindow.document.write(`
+<html>
+
+<head>
+
+<title>
+Monthly Summary Report
+</title>
+
+<style>
+
+body{
+font-family:Arial;
+padding:20px;
+}
+
+h2{
+text-align:center;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+th,td{
+border:1px solid black;
+padding:8px;
+text-align:center;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h2>
+Monthly Summary Report
+</h2>
+
+${document.querySelector(
+"#printArea table"
+).outerHTML}
+
+</body>
+
+</html>
+`);
+
+printWindow.document.close();
+
+printWindow.focus();
+
+setTimeout(function(){
+
+printWindow.print();
+
+},500);
+
+}
+
+renderEmployees();
+renderRecords();
+renderSummary();
+
+</script>
+ <footer>
+        <p>&copy; <a href="https://brandspire-lk.vercel.app"target="_blank" rel="noopener noreferrer">Brandspire </a> All rights reserved.</p>
+        </p>
+    </footer>
+</body>
+</html>
