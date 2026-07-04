@@ -325,6 +325,7 @@ async function addRecord() {
     }
 
     showToast('Record saved successfully');
+    document.getElementById("holiday").checked = false;
     await fetchRecords();
 }
 
